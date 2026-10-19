@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f4c5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Expenses">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <title>Travel Expenses</title>
+</head>
+<body>
+  <header class="top">
+    <h1>Travel Expenses</h1>
+    <button id="syncStatus" class="sync" type="button" aria-live="polite">Local only</button>
+  </header>
+
+  <main>
+    <!-- CAPTURE -->
+    <section id="tab-capture" class="tab active">
+      <form id="expenseForm" autocomplete="off">
+        <h2 id="formTitle">New expense</h2>
+
+        <div class="card">
+          <div class="photo-actions">
+            <label class="btn primary big">
+              <span>📷 Take photo</span>
+              <input id="inputCamera" type="file" accept="image/*" capture="environment" hidden>
+            </label>
+            <label class="btn big">
+              <span>🖼 From library</span>
+              <input id="inputLibrary" type="file" accept="image/*" multiple hidden>
+            </label>
+          </div>
+          <div id="formPhotos" class="thumbs" aria-label="Receipt photos"></div>
+          <p id="photoHint" class="hint">Add one or more photos of the receipt.</p>
+        </div>
+
+        <div class="card grid">
+          <label class="field">
+            <span>Date</span>
+            <input id="date" type="date" required>
+          </label>
+          <label class="field">
+            <span>Amount</span>
+            <input id="amount" type="text" inputmode="decimal" placeholder="0.00" required pattern="[0-9,]*\.?[0-9]*">
+          </label>
+          <label class="field">
+            <span>Currency</span>
+            <select id="currency" required></select>
+          </label>
+          <label class="field" id="currencyOtherWrap" hidden>
+            <span>Currency code</span>
+            <input id="currencyOther" type="text" maxlength="3" placeholder="e.g. MXN" autocapitalize="characters">
+          </label>
+          <label class="field wide">
+            <span>Category</span>
+            <select id="category" required></select>
+          </label>
+          <label class="field wide">
+            <span>Trip / project code</span>
+            <input id="trip" type="text" list="tripList" placeholder="e.g. Miami Oct 2026">
+            <datalist id="tripList"></datalist>
+          </label>
+          <label class="field wide">
+            <span>Purpose</span>
+            <input id="purpose" type="text" placeholder="Business purpose of this expense" required>
+          </label>
+          <label class="field wide">
+            <span>Payment method</span>
+            <select id="payment"></select>
+          </label>
+          <label class="field wide">
+            <span>Notes (optional)</span>
+            <textarea id="notes" rows="2" placeholder="Anything else to remember when entering in iExpense"></textarea>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="saveBtn" class="btn primary big" type="submit">Save expense</button>
+          <button id="cancelEdit" class="btn big" type="button" hidden>Cancel edit</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- LIST / REVIEW / EXPORT -->
+    <section id="tab-list" class="tab">
+      <h2>Expenses</h2>
+      <div class="card filters">
+        <label class="field"><span>Trip</span><select id="filterTrip"></select></label>
+        <label class="field"><span>Status</span>
+          <select id="filterStatus">
+            <option value="">All</option>
+            <option value="Draft">Draft</option>
+            <option value="Exported">Exported</option>
+          </select>
+        </label>
+      </div>
+      <div class="toolbar">
+        <button id="selAll" class="btn small" type="button">Select all</button>
+        <button id="selNone" class="btn small" type="button">Clear</button>
+        <span id="selInfo" class="hint"></span>
+      </div>
+      <div id="totals" class="totals"></div>
+      <div id="list"></div>
+      <div class="export-bar">
+        <button id="exportZip" class="btn primary" type="button">Download ZIP</button>
+        <button id="exportCsv" class="btn" type="button">CSV only</button>
+        <button id="markExported" class="btn" type="button">Mark exported</button>
+        <button id="markDraft" class="btn" type="button">Mark draft</button>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings" class="tab">
+      <h2>Settings</h2>
+      <div class="card">
+        <h3>Cloud backup</h3>
+        <p id="authInfo" class="hint">Not signed in.</p>
+        <div class="actions row">
+          <button id="signIn" class="btn primary" type="button">Sign in with GitHub</button>
+          <button id="signOut" class="btn" type="button" hidden>Sign out</button>
+          <button id="syncNow" class="btn" type="button">Sync now</button>
+        </div>
+        <p class="hint">Expenses are always saved on this phone first, so the app works with no signal. They back up to the cloud when you are online and signed in.</p>
+      </div>
+      <form id="settingsForm" class="card">
+        <h3>Lists</h3>
+        <label class="field wide"><span>Categories (one per line)</span><textarea id="setCategories" rows="7"></textarea></label>
+        <label class="field wide"><span>Currencies (one per line)</span><textarea id="setCurrencies" rows="5"></textarea></label>
+        <label class="field wide"><span>Payment methods (one per line)</span><textarea id="setPayments" rows="4"></textarea></label>
+        <div class="actions"><button class="btn primary" type="submit">Save lists</button></div>
+      </form>
+      <div class="card">
+        <h3>This device</h3>
+        <p id="deviceInfo" class="hint"></p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs" aria-label="Sections">
+    <button data-tab="capture" class="active" type="button"><span>➕</span>Capture</button>
+    <button data-tab="list" type="button"><span>🧾</span>Expenses</button>
+    <button data-tab="settings" type="button"><span>⚙️</span>Settings</button>
+  </nav>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="viewer"></dialog>
+
+  <script src="config.js"></script>
+  <script src="vendor/supabase.js"></script>
+  <script src="vendor/jszip.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
