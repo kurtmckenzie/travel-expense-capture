@@ -122,12 +122,29 @@
       <div class="card">
         <h3>Cloud backup</h3>
         <p id="authInfo" class="hint">Not signed in.</p>
+        <div id="signedOutBox">
+          <div class="actions">
+            <button id="signIn" class="btn primary" type="button">Sign in with GitHub</button>
+          </div>
+          <p class="hint center">or use an email and password</p>
+          <form id="emailForm" class="emailform" autocomplete="on">
+            <label class="field"><span>Email</span>
+              <input id="authEmail" type="email" autocomplete="email" inputmode="email" autocapitalize="none" required>
+            </label>
+            <label class="field"><span>Password (8+ characters)</span>
+              <input id="authPassword" type="password" autocomplete="current-password" minlength="8" required>
+            </label>
+            <div class="actions row">
+              <button id="emailSignIn" class="btn primary" type="submit">Sign in</button>
+              <button id="emailSignUp" class="btn" type="button">Create account</button>
+            </div>
+          </form>
+        </div>
         <div class="actions row">
-          <button id="signIn" class="btn primary" type="button">Sign in with GitHub</button>
           <button id="signOut" class="btn" type="button" hidden>Sign out</button>
           <button id="syncNow" class="btn" type="button">Sync now</button>
         </div>
-        <p class="hint">Expenses are always saved on this phone first, so the app works with no signal. They back up to the cloud when you are online and signed in.</p>
+        <p class="hint">Each person signs in with their own account and sees only their own expenses. Expenses are always saved on this phone first, so the app works with no signal. They back up to the cloud when you are online and signed in.</p>
       </div>
       <form id="settingsForm" class="card">
         <h3>Lists</h3>

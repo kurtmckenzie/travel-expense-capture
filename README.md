@@ -29,14 +29,19 @@ Then in the repo: **Settings -> Pages -> Build and deployment -> Deploy from a b
 
 The repo can be public: it contains no secrets. (Private repos need a paid GitHub plan for Pages.)
 
-### 4. Lock it to you
-1. Open the app, go to **Settings**, tap **Sign in with GitHub**, and approve.
-2. In Supabase **Authentication -> Sign In / Providers**, turn **off "Allow new users to sign up"**. After that nobody else can create an account on your project, even though the app address is public.
+### 4. Accounts (multi-user)
+The app supports any number of people. Each person signs in with their own account and can only ever see their own expenses and receipts (enforced by the database rules in `schema.sql`, not just the app). Two sign-in options are built in:
+- **GitHub** (set up in step 2).
+- **Email and password.** In Supabase go to **Authentication -> Sign In / Providers -> Email**, make sure Email is enabled, and turn **off "Confirm email"** so people can sign in straight after creating an account. (With it on, Supabase's built-in email sender is limited to a few messages per hour.)
+
+To stop strangers creating accounts on your project later, turn off **"Allow new users to sign up"** in **Authentication -> Sign In / Providers** once your team has signed up. Existing users keep working.
+
+If two people share one phone, the app removes the previous person's local copy when the next person signs in (and warns first if anything was never backed up).
 
 ### 5. Install on your iPhone
 1. Open the address in **Safari** (it must be Safari for installing).
 2. Tap **Share -> Add to Home Screen**.
-3. Open it from the Home Screen icon, sign in once while online, and allow the camera when asked.
+3. Open it from the Home Screen icon, sign in once while online (GitHub, or email and password), and allow the camera when asked.
 
 Before a trip, open the app once on Wi-Fi so it caches itself, then try Airplane mode to confirm it opens.
 
