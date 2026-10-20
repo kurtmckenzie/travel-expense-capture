@@ -1,5 +1,5 @@
 // Offline shell cache. Bump VERSION whenever any cached file changes.
-const VERSION = 'tec-v1';
+const VERSION = 'tec-v3';
 const SHELL = [
   './',
   'index.html',
@@ -34,16 +34,19 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Supabase and other origins go straight to the network
 
+  // config.js and the page itself: network first so edits always arrive, cache only as the offline fallback.
+  const networkFirst = req.mode === 'navigate' || url.pathname.endsWith('/config.js');
+
   // Page loads: try the network (so updates arrive), fall back to the cached shell when offline.
-  if (req.mode === 'navigate') {
+  if (networkFirst) {
+    const isPage = req.mode === 'navigate';
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(VERSION).then((c) => c.put('index.html', copy));
+          if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(isPage ? 'index.html' : req, copy)); }
           return res;
         })
-        .catch(() => caches.match('index.html').then((r) => r || caches.match('./')))
+        .catch(() => (isPage ? caches.match('index.html').then((r) => r || caches.match('./')) : caches.match(req)))
     );
     return;
   }

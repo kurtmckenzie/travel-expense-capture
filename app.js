@@ -87,6 +87,7 @@
   const idbGet = (id) => tx('readonly', (s) => s.get(id));
   const idbPut = (rec) => tx('readwrite', (s) => s.put(rec));
   const idbDelete = (id) => tx('readwrite', (s) => s.delete(id));
+  const idbClear = () => tx('readwrite', (s) => s.clear());
 
   // ---------- Supabase ----------
   const cloudConfigured = Boolean(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY && window.supabase);
@@ -693,16 +694,53 @@
   }
 
   // ---------- auth ----------
+  // The expenses stored on this phone belong to one account at a time (tec.owner).
+  // If a different account signs in, the previous account's local copy is removed first
+  // so one person's receipts can never be uploaded under another person's login.
+  const getOwner = () => { try { return localStorage.getItem('tec.owner'); } catch { return null; } };
+  const setOwner = (id) => { try { id ? localStorage.setItem('tec.owner', id) : localStorage.removeItem('tec.owner'); } catch { /* ignore */ } };
+
+  async function clearLocal() {
+    await idbClear();
+    selected.clear();
+    sticky = {};
+    saveJSON('tec.sticky', sticky);
+    urlCache.clear();
+    resetForm(false);
+    await refreshTripList();
+    await renderList();
+  }
+
+  async function claimOwnership(userId) {
+    const owner = getOwner();
+    if (!owner) { setOwner(userId); return true; }       // first account on this phone keeps anything captured before signing in
+    if (owner === userId) return true;
+    const dirty = (await idbAll()).filter((r) => r.dirty).length;
+    const warn = dirty
+      ? `Another account has ${dirty} expense(s) on this phone that were never backed up. Signing in will delete them from this phone. Continue?`
+      : 'Another account was using this phone. Its expenses are safe in the cloud and will be removed from this phone. Continue?';
+    if (!confirm(warn)) { await sb.auth.signOut(); return false; }
+    await clearLocal();
+    setOwner(userId);
+    return true;
+  }
+
+  async function onSignedIn(s) {
+    session = s;
+    if (!(await claimOwnership(s.user.id))) { session = null; await updateSyncStatus(); return; }
+    await updateSyncStatus();
+    sync();
+  }
+
   async function initAuth() {
     if (!sb) return;
     const { data } = await sb.auth.getSession();
-    session = data.session;
-    sb.auth.onAuthStateChange((_evt, s) => {
-      session = s;
-      updateSyncStatus();
-      if (s) setTimeout(sync, 0);
+    if (data.session) await onSignedIn(data.session);
+    sb.auth.onAuthStateChange((evt, s) => {
+      if (evt === 'SIGNED_IN' && s && (!session || session.user.id !== s.user.id)) setTimeout(() => onSignedIn(s), 0);
+      else if (evt === 'SIGNED_OUT') { session = null; setTimeout(updateSyncStatus, 0); }
+      else if (s) { session = s; }
     });
-    if (session) sync();
   }
 
   async function signIn() {
@@ -715,10 +753,50 @@
     if (error) toast(error.message);
   }
 
+  function readEmailForm() {
+    const email = $('#authEmail').value.trim();
+    const password = $('#authPassword').value;
+    if (!email || !email.includes('@')) { toast('Enter your email address'); return null; }
+    if (password.length < 8) { toast('Password must be at least 8 characters'); return null; }
+    return { email, password };
+  }
+
+  async function emailSignIn(e) {
+    if (e) e.preventDefault();
+    if (!sb) { toast('Cloud is not configured yet (see config.js)'); return; }
+    if (!navigator.onLine) { toast('You need internet to sign in'); return; }
+    const creds = readEmailForm();
+    if (!creds) return;
+    const { error } = await sb.auth.signInWithPassword(creds);
+    if (error) toast(error.message); else { $('#authPassword').value = ''; toast('Signed in'); }
+  }
+
+  async function emailSignUp() {
+    if (!sb) { toast('Cloud is not configured yet (see config.js)'); return; }
+    if (!navigator.onLine) { toast('You need internet to create an account'); return; }
+    const creds = readEmailForm();
+    if (!creds) return;
+    const { data, error } = await sb.auth.signUp({
+      ...creds,
+      options: { emailRedirectTo: location.origin + location.pathname }
+    });
+    if (error) { toast(error.message); return; }
+    $('#authPassword').value = '';
+    if (data.session) toast('Account created and signed in');
+    else toast('Check your email and tap the confirmation link, then sign in');
+  }
+
   async function signOut() {
     if (!sb) return;
+    if (session && navigator.onLine) await sync();
+    const dirty = (await idbAll()).filter((r) => r.dirty).length;
+    if (dirty && !confirm(`${dirty} expense(s) are not backed up yet and will stay only on this phone. Sign out anyway?`)) return;
     await sb.auth.signOut();
     session = null;
+    if (!dirty && confirm('Also remove this account\'s expenses from this phone? They stay safe in the cloud.')) {
+      await clearLocal();
+      setOwner(null);
+    }
     updateSyncStatus();
   }
 
@@ -734,7 +812,7 @@
     } else who = 'Not signed in. Sign in once while online to back up your expenses.';
     if (lastSyncError) who += ` Last sync problem: ${lastSyncError}`;
     $('#authInfo').textContent = who;
-    $('#signIn').hidden = !cloudConfigured || Boolean(session);
+    $('#signedOutBox').hidden = !cloudConfigured || Boolean(session);
     $('#signOut').hidden = !session;
     $('#syncNow').hidden = !session;
     $('#deviceInfo').textContent =
@@ -800,6 +878,8 @@
     $('#markDraft').addEventListener('click', async () => { const r = await chosenRecords(); if (r.length) { await setStatus(r, 'Draft'); toast('Marked draft'); } });
     $('#settingsForm').addEventListener('submit', onSaveSettings);
     $('#signIn').addEventListener('click', signIn);
+    $('#emailForm').addEventListener('submit', emailSignIn);
+    $('#emailSignUp').addEventListener('click', emailSignUp);
     $('#signOut').addEventListener('click', signOut);
     $('#syncNow').addEventListener('click', async () => { await sync(); toast(lastSyncError ? 'Sync problem: ' + lastSyncError : 'Sync finished'); });
     $('#syncStatus').addEventListener('click', () => {
